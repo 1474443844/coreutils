@@ -26,9 +26,7 @@ jobs:
         with:
           targets: |
             aarch64-linux-android
-            armv7-linux-androideabi
             x86_64-linux-android
-            i686-linux-android
 
       # 3. 启用 Rust 依赖缓存，加快后续构建速度
       - name: Cache Cargo Dependencies
