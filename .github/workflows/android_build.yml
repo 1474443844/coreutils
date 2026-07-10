@@ -1,0 +1,67 @@
+name: Rust Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: '请输入要构建的 Tag 名称 (如 v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. 检出指定 Tag 的代码
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name }}
+          fetch-depth: 0 # 获取完整历史以确保能找到对应的 Tag
+
+      # 2. 设置 Rust 交叉编译环境和目标平台 (Targets)
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: |
+            aarch64-linux-android
+            armv7-linux-androideabi
+            x86_64-linux-android
+            i686-linux-android
+
+      # 3. 启用 Rust 依赖缓存，加快后续构建速度
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # 4. 配置 Android NDK 环境变量
+      # GitHub 的 ubuntu-latest 镜像已预装 NDK，我们将其路径传递给 ANDROID_NDK_HOME
+      - name: Configure Android NDK
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_LATEST_HOME}" >> $GITHUB_ENV
+
+      # 5. 快速安装 cargo-ndk 工具
+      # 使用 cargo-binstall 直接下载预编译的二进制，能比从源码编译（cargo install）节省数分钟
+      - name: Install cargo-ndk
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall --no-confirm cargo-ndk
+
+      # 6. 使用 cargo-ndk 进行 Android 交叉编译
+      # -o ./jniLibs 会自动将编译好的 .so 文件按照 Android NDK 标准目录结构分类放入（如 arm64-v8a, armeabi-v7a 等）
+      - name: Build Rust Libraries for Android
+        run: |
+          cargo ndk \
+            -t arm64-v8a \
+            -t armeabi-v7a \
+            -t x86_64 \
+            -t x86 \
+            -o ./jniLibs \
+            build --release
+
+      # 7. 打包并上传生成的 Android 动态库文件为 Artifacts
+      - name: Upload Android Libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-android-libs-${{ github.event.inputs.tag_name }}
+          path: ./jniLibs/
