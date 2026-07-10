@@ -45,19 +45,29 @@ jobs:
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall --no-confirm cargo-ndk
 
-      # 6. 使用 cargo-ndk 进行 Android 交叉编译
-      # -o ./jniLibs 会自动将编译好的 .so 文件按照 Android NDK 标准目录结构分类放入（如 arm64-v8a, armeabi-v7a 等）
-      - name: Build Rust Libraries for Android
+      # 6. 开始编译 Android 独立可执行二进制文件
+      - name: Build Rust Executable for Android
         run: |
-          cargo ndk \
-            -t arm64-v8a \
-            -t x86_64 \
-            -o ./jniLibs \
-            build --release
+          # 编译 64位 ARM (aarch64) 可执行文件（适用于现代手机）
+          cargo ndk -t aarch64-linux-android build --release
+          
+          # 编译 64位 x86_64 可执行文件（适用于模拟器）
+          cargo ndk -t x86_64-linux-android build --release
 
-      # 7. 打包并上传生成的 Android 动态库文件为 Artifacts
-      - name: Upload Android Libraries
+      # 7. 整理并提取编译好的二进制文件
+      - name: Organize Binaries
+        run: |
+          mkdir -p ./android-binaries/arm64-v8a
+          mkdir -p ./android-binaries/x86_64
+          
+          # 【注意】请将下面的 "coreutils" 替换为你实际编译出来的二进制文件名（通常无后缀）
+          # 如果你编译出来的是 uutils，就用 uutils 代替
+          cp target/aarch64-linux-android/release/coreutils ./android-binaries/arm64-v8a/
+          cp target/x86_64-linux-android/release/coreutils ./android-binaries/x86_64/
+
+      # 8. 上传归档
+      - name: Upload Android Executables
         uses: actions/upload-artifact@v4
         with:
-          name: rust-android-libs-${{ github.event.inputs.tag_name }}
-          path: ./jniLibs/
+          name: rust-android-binaries-${{ github.event.inputs.tag_name }}
+          path: ./android-binaries/
