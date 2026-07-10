@@ -43,7 +43,7 @@ jobs:
       - name: Install cargo-ndk
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          cargo binstall --no-confirm cargo-ndk
+          cargo binstall --no-confirm --force cargo-ndk
 
       # 6. 开始编译 Android 独立可执行二进制文件
       - name: Build Rust Executable for Android
